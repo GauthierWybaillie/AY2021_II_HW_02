@@ -14,17 +14,24 @@
 #define G 3
 #define B 4
 #define Tail 5
-#define LED 6
+#define Time_Config 6
+#define End_Time_Config 7
 
 
 const Color BLACK = {0, 0, 0};
+const Color RED = {255, 0, 0};
+const Color GREEN = {0, 255, 0};
+const Color BLUE = {0, 0, 255};
+const Color PURPLE = {255, 0, 255};
+const Color YELLOW = {255, 255, 0};
+
 
 volatile uint8_t packet;
 volatile uint8_t flag;
 volatile Color color;
-volatile uint8_t status;    
-
-uint8_t start;
+volatile uint8_t status;
+volatile uint8_t period;
+volatile uint8_t flag_GUI;
 
 
 int main(void)
@@ -40,25 +47,29 @@ int main(void)
     // Initialization ISR due to UART
     ISR_UART_StartEx(Custom_UART_RX_ISR);       
     
+    Timer_Start();
+    isr_timer_StartEx(Custom_TIMER_ISR);
+    
     // Initialization of the status to 0
     status = Idle;                             
-    // Initialization of the variable start: it turns into one after the detection of the packet header
-    start = 0;                                
-  
-    RGBLed_WriteColor(BLACK); // RGB LED start in OFF condition 
     
+    period = 5;
+    flag_GUI = 0;
+    
+    RGBLed_WriteColor(BLACK); // RGB LED start in OFF condition 
     
     for(;;)
     {
         switch (status){
             // Idle status --> it waits the arrival of an Interrupt to switch status
-            case Idle: 
-            start = 0;
+            case Idle:
+            //RGBLed_WriteColor(BLACK);
             if (flag == 1){
                 status = Header;
+                flag = 0 ; 
             }
             break;
-            
+
             /*
             Header status -> Depending on the packet that is arrived from UART it can:
               - Print the string required for the GUI;
@@ -66,16 +77,20 @@ int main(void)
               - Go back to Idle state and wait for the right packet. 
             */
             case Header: 
-            if (packet == 'v'){                          //Requirement for GUI
+            if(packet == 'v'){                          //Requirement for GUI
+                Timer_Stop();
                 UART_PutString("RGB LED Program $$$");
+                if (flag_GUI == 1){
+                    flag_GUI = 0;
+                }else{
+                    flag_GUI = 1;
+                    Timer_Start();
+                }
                 status = Idle;
-                flag = 0 ;
             }else if(packet == 160){                    // Control for Packet Header
-               start = 1;
+               //RGBLed_WriteColor(PURPLE); 
                status = R; 
-               flag = 0 ;
-            }else{ 
-                flag = 0 ;                              
+            }else{                               
                 status = Idle;
             }
             break;
@@ -86,10 +101,12 @@ int main(void)
             of the Interrupt to 0 and goes to the next status.
             */
             case R:
-            if (start == 1 && flag == 1){
+            if (flag == 1){
+                flag = 0;
+                //RGBLed_WriteColor(RED);
                 color.red = packet;
                 status = G;
-                flag = 0;
+
             }
             break;
             
@@ -99,7 +116,8 @@ int main(void)
             of the Interrupt to 0 and goes to the next status.
             */
             case G:
-            if (start == 1 && flag == 1){
+            if (flag == 1){
+                //RGBLed_WriteColor(GREEN);
                 color.green = packet;
                 status = B;
                 flag = 0;
@@ -112,7 +130,8 @@ int main(void)
             of the Interrupt to 0 and goes to the next status.
             */
             case B:
-            if (start == 1 && flag == 1){
+            if (flag == 1){
+                //RGBLed_WriteColor(BLUE);
                 color.blue = packet;
                 flag = 0;
                 status = Tail;
@@ -126,23 +145,44 @@ int main(void)
             */
             case Tail:
             if (flag == 1){
+                flag = 0;
                 if (packet == 192){
-                    status = LED;
-                    flag = 0;
+                    RGBLed_WriteColor(color);
+                    status = Idle;
                 }else{
                     status = Tail;
-                    flag = 0;
+                    
                 }
             }
             break;
             
-            // LED status -> It turns on the LED and goes back to the IDLE status
-            case LED:
-            RGBLed_WriteColor(color);
-            status = Idle;
-            break;   
+            case Time_Config:
+            if (flag == 1){
+                flag = 0;
+                //RGBLed_WriteColor(YELLOW);
+                Timer_Stop();
+                if (packet >= 1 && packet <= 20){
+                    period = packet;
+                    status = End_Time_Config;    
+                }else{
+                    status = Time_Config;
+                }
+            break;
+            
+            case End_Time_Config:
+                if (flag == 1){
+                    flag = 0;
+                    if (packet == 192){
+                        Timer_WritePeriod(period*clock_freq);
+                        status = Idle;
+                    }else{
+                        
+                    status = End_Time_Config;
+                    }
+                }
+            }
+            }
         }
     }
-}
 
 /* [] END OF FILE */
