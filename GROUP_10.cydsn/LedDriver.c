@@ -1,9 +1,9 @@
 /* ========================================
  * LEDDRIVER.c
- * Group 10 Antonella Buquicchio and Gauthier Wybaillie
+ * Group_10: Antonella Buquicchio and Gauthier Wybaillie
  * 09/04/2021
  * 
- * Some basic functions for control of the LED are defined in this file.
+ * Basic functions for control of the LED are defined in this file.
  * ========================================
 */
 

@@ -1,6 +1,6 @@
 /* ========================================
  * MAIN.c 
- * Group 10 Antonella Buquicchio and Gauthier Wybaillie
+ * Group_10: Antonella Buquicchio and Gauthier Wybaillie
  * 09/04/2021
  * 
  * The code is organised in multiple states.
@@ -15,64 +15,59 @@
 #include "project.h"
 #include "InterruptRoutines.h"
 #include "LedDriver.h"
-#include "UART.h"
 #include "Timer.h"
 
 const Color BLACK = {0, 0, 0};
-const Color RED = {255, 0, 0};
-const Color GREEN = {0, 255, 0};
-const Color BLUE = {0, 0, 255};
-const Color PURPLE = {255, 0, 255};
-const Color YELLOW = {255, 255, 0};
 
 extern volatile uint8_t status;
 extern volatile uint8_t packet;
 extern volatile uint8_t flag;
-extern volatile uint8_t period;
+extern volatile int16 period;
 
 Color color;
+uint8_t timeout;
 
 int main(void)
 {
     CyGlobalIntEnable;        /* Enable global interrupts. */
     
-    //Start UART periferal
+    // Start UART periferal
     UART_Start();                               
     
     // Start Led RGB
     RGBLed_Start();
     
+    // Start Timer periferal
+    Timer_Start();
+    
     // Initialization ISR due to UART
     ISR_UART_StartEx(Custom_UART_RX_ISR);       
-    
-    Timer_Start();
+
     isr_timer_StartEx(Custom_TIMER_ISR);
     
     // Initialization of the status to 0
     status = Idle;                             
     
-    period = 5;
+    // Initialization of the timeout value to 5 seconds
+    timeout = 5;
     
-    RGBLed_WriteColor(BLACK); // RGB LED start in OFF condition 
-    
-    
+    // RGB LED start in OFF condition 
+    RGBLed_WriteColor(BLACK);
+
     for(;;)
     {
         switch (status){
-            // Idle status --> it waits the arrival of an Interrupt to switch status
-            case Idle:
-            //RGBLed_WriteColor(BLACK);
-            break;
-           
+            
+            // Idle -> It waits the arrival of an Interrupt to switch status.
+
             /* 
-            R status -> If the packet header is detected and a data is arrived from UART,
+            R -> If the packet header is detected and a data is arrived from UART,
             the value is saved in the RED component of the struct color. Then, it puts the flag
             of the Interrupt to 0 and goes to the next status.
             */
             case R:
             if (flag == 1){
                 flag = 0;
-                //RGBLed_WriteColor(RED);
                 color.red = packet;
                 status = G;
 
@@ -80,35 +75,33 @@ int main(void)
             break;
             
             /* 
-            G status -> If the packet header is detected and a data is arrived from UART,
+            G -> If the packet header is detected and a data is arrived from UART,
             the value is saved in the GREEN component of the struct color. Then, it puts the flag
             of the Interrupt to 0 and goes to the next status.
             */
             case G:
             if (flag == 1){
-                //RGBLed_WriteColor(GREEN);
+                flag = 0;
                 color.green = packet;
                 status = B;
-                flag = 0;
             }
             break;
             
             /* 
-            B status -> If the packet header is detected and a data is arrived from UART,
+            B -> If the packet header is detected and a data is arrived from UART,
             the value is saved in the BLUE component of the struct color. Then, it puts the flag
             of the Interrupt to 0 and goes to the next status.
             */
             case B:
             if (flag == 1){
-                //RGBLed_WriteColor(BLUE);
-                color.blue = packet;
                 flag = 0;
+                color.blue = packet;
                 status = Tail;
             }
             break;
             
             /*
-            Tail status -> it waits the arrival of an interrupt and then controls if the 
+            Tail -> it waits the arrival of an interrupt and then controls if the 
             data corresponds to the packet tail. If the transmission is completed, the colour 
             of the LED is adjusted and the code goes back to the Idle state.
             */
@@ -136,11 +129,11 @@ int main(void)
             case Time_Config:
             if (flag == 1){
                 flag = 0;
-                //RGBLed_WriteColor(YELLOW);
                 Timer_Stop();
                 if (packet >= 1 && packet <= 20){
-                    period = packet;
-                    status = End_Time_Config;    
+                    timeout = packet;
+                    period = timeout*clock_freq;
+                    status = End_Time_Config;
                 }else{
                     status = Time_Config;
                 }
@@ -155,9 +148,12 @@ int main(void)
                 
             case End_Time_Config:
                 if (flag == 1){
+                    Timer_Stop();
                     flag = 0;
                     if (packet == 192){
-                        Timer_WritePeriod(period*clock_freq);
+                        Timer_WriteCounter(period - 1);
+                        Timer_WritePeriod(period - 1);
+                        Timer_Start();
                         status = Idle;
                     }else{
                         status = End_Time_Config;
