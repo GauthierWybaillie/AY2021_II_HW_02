@@ -1,6 +1,8 @@
 /* ========================================
- *
- * 
+ * LEDDRIVER.h
+ * Group 10 Antonella Buquicchio and Gauthier Wybaillie
+ * 09/04/2021 
+ * ========================================
 */
 #ifndef __LED_DRIVER_H__
     #define __LED_DRIVER_H__

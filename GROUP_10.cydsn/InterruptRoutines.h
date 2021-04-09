@@ -1,6 +1,8 @@
 /* ========================================
- *
- * 
+ * INTERRUPTROUTINES.h 
+ * Group 10 Antonella Buquicchio and Gauthier Wybaillie
+ * 09/04/2021
+ * ========================================
 */
 
 // Declaration of ISR
@@ -9,8 +11,21 @@
     #define __INTERRUPT_ROUTINES_H__
     
     #include "project.h"
+    #include "LedDriver.h"
     
     #define clock_freq 1000
+    
+    #define Idle 0
+    #define Header 1
+    #define R 2
+    #define G 3
+    #define B 4
+    #define Tail 5
+    #define Time_Config 6
+    #define End_Time_Config 7
+    
+
+
     
     CY_ISR_PROTO(Custom_UART_RX_ISR);
     
